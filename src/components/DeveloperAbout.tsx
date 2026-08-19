@@ -71,9 +71,10 @@ export const DeveloperAbout: React.FC<DeveloperAboutProps> = ({ onOpenQuest }) =
                   rel="noopener noreferrer"
                   onClick={() => soundEffects.playClick()}
                   className="w-full flex items-center justify-center gap-2 py-3 text-xs font-mono font-bold text-mc-portal bg-mc-portal/10 border border-mc-portal/40 hover:bg-mc-portal/20 rounded-md transition-all"
+                  title="Direct Message devil on Discord (@devil0329.)"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  <span>Connect with devil on Discord</span>
+                  <span>Direct Message devil on Discord (@{STUDIO_INFO.discordHandle})</span>
                 </a>
               </div>
             </div>

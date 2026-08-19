@@ -106,17 +106,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenQuest }) => {
             {isMuted ? <VolumeX className="w-4 h-4 text-mc-subtle" /> : <Volume2 className="w-4 h-4 text-mc-emerald" />}
           </button>
 
-          {/* Discord Direct Link */}
+          {/* Discord Direct DM Link */}
           <a
             href={STUDIO_INFO.discordUrl}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => soundEffects.playClick()}
             className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-mc-portal bg-mc-portal/10 border border-mc-portal/30 hover:bg-mc-portal/20 rounded-md transition-all"
-            title="Join Developer Discord Server"
+            title="Direct Message devil on Discord (@devil0329.)"
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            <span className="font-mono">Discord</span>
+            <span className="font-mono">DM: @{STUDIO_INFO.discordHandle}</span>
           </a>
 
           {/* Primary CTA */}
@@ -175,7 +175,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenQuest }) => {
                 className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-mono font-semibold text-mc-portal bg-mc-portal/10 border border-mc-portal/30 rounded-md"
               >
                 <MessageSquare className="w-4 h-4" />
-                <span>Join Discord Server</span>
+                <span>DM on Discord (@{STUDIO_INFO.discordHandle})</span>
               </a>
 
               <button

@@ -98,9 +98,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenQuest }) => {
                 rel="noopener noreferrer"
                 onClick={() => soundEffects.playClick()}
                 className="flex items-center gap-2 text-xs font-mono text-mc-portal hover:text-mc-portal-glow bg-mc-portal/10 border border-mc-portal/30 p-2 rounded transition-colors"
+                title="Direct Message devil on Discord"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span>Join Discord Server</span>
+                <span>DM on Discord (@{STUDIO_INFO.discordHandle})</span>
               </a>
 
               <a

@@ -112,7 +112,7 @@ export const ServerConsoleDemo: React.FC<ServerConsoleDemoProps> = ({ onOpenQues
 
       case 'contact':
         responseLines = [
-          `Discord Guild: ${STUDIO_INFO.discordUrl}`,
+          `Discord Direct Message: @${STUDIO_INFO.discordHandle} (${STUDIO_INFO.discordUrl})`,
           `Business Email: ${STUDIO_INFO.email}`,
           'Click "Build My Plugin" in the top bar to submit a custom specification.',
         ];

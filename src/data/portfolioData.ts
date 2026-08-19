@@ -9,9 +9,10 @@ export const STUDIO_INFO = {
   tagline: 'Custom Systems. Built for Your Server.',
   heroDescription:
     'High-performance Paper, Purpur & Folia plugins, distributed database synchronization, and bi-directional Discord bridges engineered around how your community plays.',
-  discordUrl: 'https://discord.com/channels/1539681229828399154/1539681230394490941',
+  discordHandle: 'devil0329.',
+  discordUrl: 'https://discord.com/users/devil0329.',
   email: 'hemnath0329@gmail.com',
-  githubUrl: 'https://github.com',
+  githubUrl: 'https://github.com/hemnath0929/mc-server-dev',
   warrantyText: 'Anytime Free Bug Fixes & Support Warranty',
   averageTurnaround: '3 to 14 Days',
   tpsTarget: '20.00 / 20.00 TPS Guaranteed',

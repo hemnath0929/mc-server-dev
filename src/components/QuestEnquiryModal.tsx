@@ -256,10 +256,10 @@ export const QuestEnquiryModal: React.FC<QuestEnquiryModalProps> = ({
               <div className="bg-mc-surface/70 border border-mc-portal/40 rounded-lg p-5 space-y-3 max-w-lg mx-auto text-left">
                 <div className="flex items-center gap-2 text-mc-portal text-xs font-mono font-bold uppercase">
                   <MessageSquare className="w-4 h-4" />
-                  <span>Join Devil Studio Discord</span>
+                  <span>Direct Message devil on Discord (@{STUDIO_INFO.discordHandle})</span>
                 </div>
                 <p className="text-xs text-mc-muted leading-relaxed">
-                  You can also join the developer Discord server directly or copy your formatted quest specification to paste into Discord tickets:
+                  You can also direct message developer <strong className="text-white">@{STUDIO_INFO.discordHandle}</strong> directly on Discord or copy your formatted quest specification to paste in DMs:
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2 pt-1">
                   <a
@@ -269,7 +269,7 @@ export const QuestEnquiryModal: React.FC<QuestEnquiryModalProps> = ({
                     onClick={() => soundEffects.playClick()}
                     className="flex-1 py-2.5 px-4 text-xs font-mono font-bold text-center text-white bg-mc-portal hover:bg-mc-portal-glow rounded transition-all shadow-glow-portal"
                   >
-                    Open Discord Channel
+                    Open Discord DM (@{STUDIO_INFO.discordHandle})
                   </a>
                   <button
                     onClick={handleCopyClipboard}

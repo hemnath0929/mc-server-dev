@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ParticleCanvas } from '../components/ParticleCanvas';
 import { Navbar } from '../components/Navbar';
 import { HeroSection } from '../components/HeroSection';
@@ -16,6 +16,18 @@ import { QuestEnquiryModal } from '../components/QuestEnquiryModal';
 export const PublicSite: React.FC = () => {
   const [questModalOpen, setQuestModalOpen] = useState(false);
   const [prefilledService, setPrefilledService] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    // Ensure the website always opens at the very top (Hero Section) on fresh load or reload
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+    
+    // If there is no specific hash, scroll cleanly to top
+    if (!window.location.hash || window.location.hash === '#' || window.location.hash === '') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
+  }, []);
 
   const handleOpenQuest = (serviceName?: string) => {
     setPrefilledService(serviceName);

@@ -1,0 +1,175 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --mc-emerald: #22c55e;
+  --mc-diamond: #06b6d4;
+  --mc-redstone: #ef4444;
+  --mc-portal: #a855f7;
+  --mc-gold: #eab308;
+}
+
+/* Custom Minecraft Dark Bedrock Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #080b10;
+  border-left: 1px solid #141b2d;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 2px;
+  border: 1px solid #334155;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+}
+
+/* Selection */
+::selection {
+  background-color: #22c55e;
+  color: #080b10;
+}
+
+/* Base Body with Authentic Minecraft Bedrock & Chunk Background */
+body {
+  margin: 0;
+  background-color: #080b10;
+  color: #f1f5f9;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+  
+  /* Layered Minecraft Atmosphere: 16x16 Chunk Grid + Bedrock Noise + Deep Emerald/Amethyst Fog */
+  background-image: 
+    /* 1. Subtle 32px Minecraft Chunk Grid */
+    linear-gradient(to right, rgba(34, 197, 94, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 197, 94, 0.04) 1px, transparent 1px),
+    /* 2. Minecraft Bedrock Pixel Noise */
+    radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    /* 3. Deep Biome Ambient Vignettes */
+    radial-gradient(circle at 50% 0%, rgba(34, 197, 94, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 100% 40%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 0% 70%, rgba(168, 85, 247, 0.08) 0%, transparent 55%);
+  background-size: 32px 32px, 32px 32px, 16px 16px, 16px 16px, auto, auto, auto;
+}
+
+/* Custom Minecraft UI Utilities */
+@layer components {
+  /* Minecraft Bevel Panel */
+  .mc-panel {
+    @apply bg-mc-surface/90 backdrop-blur-md border border-mc-border/80 rounded-lg shadow-mc-card transition-all duration-300;
+    box-shadow: 
+      inset 1px 1px 0px rgba(255, 255, 255, 0.08),
+      inset -1px -1px 0px rgba(0, 0, 0, 0.7),
+      0 10px 30px -10px rgba(0, 0, 0, 0.8);
+  }
+
+  .mc-panel:hover {
+    @apply border-mc-emerald/50;
+  }
+
+  /* Minecraft Item Slot Container */
+  .mc-slot {
+    @apply w-12 h-12 rounded bg-mc-obsidian border border-mc-border/70 flex items-center justify-center relative transition-all duration-200;
+    box-shadow: 
+      inset 2px 2px 0px rgba(0, 0, 0, 0.9),
+      inset -1px -1px 0px rgba(255, 255, 255, 0.12);
+  }
+
+  .mc-slot:hover {
+    @apply border-mc-emerald/80 bg-mc-surface shadow-glow-emerald;
+  }
+
+  /* Minecraft Pixel Button */
+  .mc-button-primary {
+    @apply relative inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold text-mc-dark bg-mc-emerald rounded transition-all duration-200 shadow-glow-emerald cursor-pointer;
+    box-shadow: 
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.4),
+      0 0 20px rgba(34, 197, 94, 0.4);
+  }
+
+  .mc-button-primary:hover {
+    @apply bg-mc-emerald-glow -translate-y-0.5 shadow-glow-emerald-lg;
+  }
+
+  .mc-button-primary:active {
+    @apply translate-y-0.5;
+    box-shadow: 
+      inset 0 2px 0 rgba(0, 0, 0, 0.4),
+      0 0 10px rgba(34, 197, 94, 0.3);
+  }
+
+  .mc-button-secondary {
+    @apply relative inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold text-mc-text bg-mc-surface/80 hover:bg-mc-hover border border-mc-border hover:border-mc-emerald/50 rounded transition-all duration-200 cursor-pointer;
+    box-shadow: 
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.4);
+  }
+
+  .mc-button-secondary:hover {
+    @apply -translate-y-0.5 text-white;
+  }
+
+  /* Glass Badge */
+  .mc-badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-medium rounded-md bg-mc-obsidian/80 border border-mc-border text-mc-muted;
+  }
+
+  /* XP Level Badge */
+  .mc-xp-badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-mono font-bold text-mc-emerald bg-mc-emerald/10 border border-mc-emerald/30 rounded;
+    text-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+  }
+
+  /* Diamond Badge */
+  .mc-diamond-badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-mono font-bold text-mc-diamond bg-mc-diamond/10 border border-mc-diamond/30 rounded;
+    text-shadow: 0 0 8px rgba(6, 182, 212, 0.6);
+  }
+
+  /* Portal Amethyst Badge */
+  .mc-portal-badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-mono font-bold text-mc-portal bg-mc-portal/10 border border-mc-portal/30 rounded;
+    text-shadow: 0 0 8px rgba(168, 85, 247, 0.6);
+  }
+
+  /* Redstone Badge */
+  .mc-redstone-badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-mono font-bold text-mc-redstone bg-mc-redstone/10 border border-mc-redstone/30 rounded;
+    text-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+  }
+}
+
+/* Redstone Wire Circuit Line */
+.mc-redstone-circuit {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #ef4444 30%, #f87171 50%, #ef4444 70%, transparent);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+}
+
+/* Emerald Beacon Glow Line */
+.mc-beacon-line {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #22c55e 30%, #86efac 50%, #22c55e 70%, transparent);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.8);
+}
+
+/* Reduced Motion Override */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

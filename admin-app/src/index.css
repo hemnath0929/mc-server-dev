@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #080b10;
+  border-left: 1px solid #141b2d;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #22c55e;
+}
+
+@layer components {
+  .mc-panel {
+    @apply bg-mc-surface/90 backdrop-blur-md border border-mc-border/80 rounded-lg shadow-mc-card transition-all duration-200;
+  }
+
+  .mc-slot {
+    @apply w-10 h-10 rounded bg-mc-obsidian border border-mc-border/60 flex items-center justify-center relative;
+  }
+
+  .mc-button-primary {
+    @apply relative inline-flex items-center justify-center gap-2 px-5 py-2.5 font-semibold text-mc-dark bg-mc-emerald hover:bg-mc-emerald-glow rounded transition-all duration-150 shadow-glow-emerald cursor-pointer;
+  }
+
+  .mc-button-secondary {
+    @apply relative inline-flex items-center justify-center gap-2 px-4 py-2 font-semibold text-mc-text bg-mc-surface hover:bg-mc-hover border border-mc-border hover:border-mc-emerald/50 rounded transition-all duration-150 cursor-pointer;
+  }
+
+  .mc-xp-badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono font-bold text-mc-emerald bg-mc-emerald/10 border border-mc-emerald/30 rounded;
+  }
+}

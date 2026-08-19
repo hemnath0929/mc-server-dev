@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabaseStorage } from './utils/supabase';
 import { cloudStorage } from './utils/cloudStorage';
 import {
   Shield,
@@ -18,7 +19,8 @@ import {
   KeyRound,
   LogOut,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Database
 } from 'lucide-react';
 
 interface QuestFormData {
@@ -62,6 +64,7 @@ export const App: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [adminNoteInput, setAdminNoteInput] = useState('');
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
+  const [activeDataSource, setActiveDataSource] = useState<'Supabase' | 'Cloud Bin'>('Supabase');
 
   useEffect(() => {
     const savedAuth = sessionStorage.getItem('devil_admin_auth') || localStorage.getItem('devil_admin_auth');
@@ -70,13 +73,24 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Fetch enquiries from cloud database
+  // Fetch enquiries from Supabase with cloud storage fallback
   const loadCloudEnquiries = async (showLoading = false) => {
     if (showLoading) setIsLoading(true);
     setIsRefreshing(true);
     try {
-      const data = await cloudStorage.getEnquiries();
-      setEnquiries(data);
+      // 1. Try Supabase first
+      const supabaseData = await supabaseStorage.getEnquiries();
+      if (supabaseData && supabaseData.length > 0) {
+        setEnquiries(supabaseData);
+        setActiveDataSource('Supabase');
+        setLastSyncTime(new Date().toLocaleTimeString());
+        return;
+      }
+
+      // 2. Fallback to Cloud Storage API
+      const cloudData = await cloudStorage.getEnquiries();
+      setEnquiries(cloudData);
+      setActiveDataSource('Cloud Bin');
       setLastSyncTime(new Date().toLocaleTimeString());
     } catch (err) {
       console.error('Failed to load enquiries:', err);
@@ -90,10 +104,10 @@ export const App: React.FC = () => {
     if (isAuthenticated) {
       loadCloudEnquiries(true);
 
-      // Auto background polling every 10 seconds for live updates
+      // Auto background polling every 8 seconds for live updates
       const interval = setInterval(() => {
         loadCloudEnquiries(false);
-      }, 10000);
+      }, 8000);
 
       return () => clearInterval(interval);
     }
@@ -125,6 +139,9 @@ export const App: React.FC = () => {
     if (selectedEnquiry && selectedEnquiry.id === id) {
       setSelectedEnquiry({ ...selectedEnquiry, status: newStatus });
     }
+
+    // Sync to Supabase & Cloud Storage
+    await supabaseStorage.updateStatus(id, newStatus || 'New');
     await cloudStorage.updateAllEnquiries(updated);
   };
 
@@ -136,6 +153,9 @@ export const App: React.FC = () => {
     if (selectedEnquiry && selectedEnquiry.id === id) {
       setSelectedEnquiry({ ...selectedEnquiry, adminNotes: adminNoteInput });
     }
+
+    // Sync to Supabase & Cloud Storage
+    await supabaseStorage.updateNotes(id, adminNoteInput);
     await cloudStorage.updateAllEnquiries(updated);
   };
 
@@ -146,6 +166,7 @@ export const App: React.FC = () => {
       if (selectedEnquiry?.id === id) {
         setSelectedEnquiry(null);
       }
+      await supabaseStorage.deleteEnquiry(id);
       await cloudStorage.updateAllEnquiries(updated);
     }
   };
@@ -204,6 +225,7 @@ ${item.projectDescription}
     };
     const updated = [newSample, ...enquiries];
     setEnquiries(updated);
+    await supabaseStorage.addEnquiry(newSample);
     await cloudStorage.updateAllEnquiries(updated);
   };
 
@@ -223,7 +245,6 @@ ${item.projectDescription}
   const inProgressLeads = enquiries.filter((i) => i.status === 'In Development' || i.status === 'In Review').length;
   const completedLeads = enquiries.filter((i) => i.status === 'Completed').length;
 
-  // 1. PIN AUTHENTICATION SCREEN
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#080B10] flex items-center justify-center p-4">
@@ -234,7 +255,7 @@ ${item.projectDescription}
             </div>
             <h1 className="text-2xl font-extrabold text-white">Developer Security Gate</h1>
             <p className="text-xs font-mono text-mc-muted">
-              Devil Studio · Standalone Admin Portal
+              Devil Studio · Supabase Connected Admin Portal
             </p>
           </div>
 
@@ -273,7 +294,6 @@ ${item.projectDescription}
     );
   }
 
-  // 2. AUTHENTICATED DASHBOARD
   return (
     <div className="min-h-screen bg-[#080B10] text-[#F1F5F9] flex flex-col font-sans">
       <header className="bg-[#0E131F] border-b border-[#2A3654] sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
@@ -286,13 +306,14 @@ ${item.projectDescription}
               <span className="font-extrabold text-base text-white">
                 DEVIL<span className="text-mc-emerald">.STUDIO</span>
               </span>
-              <span className="mc-xp-badge text-[10px]">STANDALONE ADMIN PORTAL</span>
+              <span className="mc-xp-badge text-[10px]">ADMIN PORTAL</span>
               <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-mc-emerald bg-mc-emerald/10 px-2 py-0.5 rounded border border-mc-emerald/30">
-                ● CLOUD SYNC ACTIVE
+                <Database className="w-3 h-3" />
+                <span>{activeDataSource} Live</span>
               </span>
             </div>
             <p className="text-[10px] font-mono text-mc-muted">
-              Client Enquiries & Custom System Pipeline · Last synced: {lastSyncTime || 'Just now'}
+              Client Enquiries Pipeline · Synced: {lastSyncTime || 'Just now'}
             </p>
           </div>
         </div>
@@ -301,10 +322,10 @@ ${item.projectDescription}
           <button
             onClick={() => loadCloudEnquiries(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded bg-mc-surface hover:bg-mc-hover text-mc-emerald border border-mc-emerald/40 transition-colors"
-            title="Refresh Live Enquiries from Cloud"
+            title="Refresh Live Enquiries from Supabase"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Sync Cloud</span>
+            <span className="hidden sm:inline">Sync Supabase</span>
           </button>
 
           <a
@@ -336,7 +357,6 @@ ${item.projectDescription}
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-8 space-y-6">
-        {/* Metrics Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="mc-panel p-4 bg-mc-surface/60">
             <span className="text-xs font-mono text-mc-subtle uppercase block">Total Enquiries</span>
@@ -356,7 +376,6 @@ ${item.projectDescription}
           </div>
         </div>
 
-        {/* Controls */}
         <div className="mc-panel p-4 bg-[#0E131F] flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="relative w-full md:w-80">
             <Search className="w-4 h-4 text-mc-subtle absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -394,11 +413,10 @@ ${item.projectDescription}
           </div>
         </div>
 
-        {/* Client Enquiries List */}
         {isLoading ? (
           <div className="mc-panel p-12 text-center space-y-3">
             <RefreshCw className="w-8 h-8 text-mc-emerald animate-spin mx-auto" />
-            <div className="text-sm font-mono text-mc-muted">Connecting to Live Cloud Database...</div>
+            <div className="text-sm font-mono text-mc-muted">Connecting to Supabase Database...</div>
           </div>
         ) : (
           <div className="space-y-3">
@@ -407,7 +425,7 @@ ${item.projectDescription}
                 <AlertCircle className="w-8 h-8 text-mc-subtle mx-auto" />
                 <div className="text-base font-bold text-white">No Client Enquiries Found</div>
                 <p className="text-xs text-mc-muted max-w-sm mx-auto">
-                  When a client submits a quest on <a href="https://mc-server-dev.vercel.app" target="_blank" rel="noopener noreferrer" className="text-mc-emerald underline">mc-server-dev.vercel.app</a>, it will appear here instantly!
+                  When a client submits a quest on <a href="https://mc-server-dev.vercel.app" target="_blank" rel="noopener noreferrer" className="text-mc-emerald underline">mc-server-dev.vercel.app</a>, it will appear here in real time!
                 </p>
               </div>
             ) : (
@@ -525,7 +543,6 @@ ${item.projectDescription}
         )}
       </main>
 
-      {/* Inspector Modal */}
       {selectedEnquiry && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
           <div className="bg-[#0E131F] border border-[#2A3654] rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl">

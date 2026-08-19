@@ -1,4 +1,5 @@
 import { QuestFormData } from '../types';
+import { supabaseStorage } from './supabase';
 import { cloudStorage } from './cloudStorage';
 
 export interface WebhookResult {
@@ -60,14 +61,21 @@ export async function submitProjectEnquiry(data: QuestFormData): Promise<Webhook
 
   const formattedText = formatEnquiryForDiscord(completeData);
 
-  // 1. Submit to Live Cloud Database for Admin Panel Sync
+  // 1. Submit to Supabase Cloud Database
+  try {
+    await supabaseStorage.submitEnquiry(completeData);
+  } catch (e) {
+    console.warn('Supabase save warning:', e);
+  }
+
+  // 2. Submit to Cloud Storage Fallback
   try {
     await cloudStorage.submitEnquiry(completeData);
   } catch (e) {
     console.warn('Cloud sync save warning:', e);
   }
 
-  // 2. Check if an environmental Discord webhook is configured
+  // 3. Discord Webhook
   const webhookUrl = (import.meta as unknown as { env?: { VITE_DISCORD_WEBHOOK_URL?: string } }).env?.VITE_DISCORD_WEBHOOK_URL;
 
   if (webhookUrl && typeof webhookUrl === 'string' && webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
@@ -105,7 +113,7 @@ export async function submitProjectEnquiry(data: QuestFormData): Promise<Webhook
 
       return {
         success: true,
-        message: 'Quest transmitted directly to developer Discord queue and Admin Cloud!',
+        message: 'Quest transmitted directly to developer Discord queue and Supabase!',
         payloadText: formattedText,
         enquiryId,
       };
@@ -119,7 +127,7 @@ export async function submitProjectEnquiry(data: QuestFormData): Promise<Webhook
 
   return {
     success: true,
-    message: 'Project enquiry successfully transmitted to Cloud Admin Database!',
+    message: 'Project enquiry successfully transmitted to Supabase Database!',
     payloadText: formattedText,
     enquiryId,
   };

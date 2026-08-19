@@ -23,54 +23,69 @@ interface QuestFormData {
   adminNotes?: string;
 }
 
-const CLOUD_BIN_URL = 'https://extendsclass.com/api/json-storage/bin/efdbfca';
+const VERCEL_API_URL = 'https://mc-server-dev.vercel.app/api/enquiries';
+const FALLBACK_CLOUD_URL = 'https://extendsclass.com/api/json-storage/bin/efdbfca';
 
 export const cloudStorage = {
   async getEnquiries(): Promise<QuestFormData[]> {
+    // 1. Try Vercel Serverless API
     try {
-      const res = await fetch(CLOUD_BIN_URL, { cache: 'no-store' });
-      if (!res.ok) throw new Error('Cloud fetch failed');
-      const data = await res.json();
-      if (Array.isArray(data.enquiries)) {
-        localStorage.setItem('devil_mc_enquiries', JSON.stringify(data.enquiries));
-        return data.enquiries;
+      const res = await fetch(VERCEL_API_URL, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.enquiries) && data.enquiries.length > 0) {
+          localStorage.setItem('devil_mc_enquiries', JSON.stringify(data.enquiries));
+          return data.enquiries;
+        }
       }
+    } catch {}
+
+    // 2. Try Fallback Cloud Storage
+    try {
+      const res = await fetch(FALLBACK_CLOUD_URL, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.enquiries) && data.enquiries.length > 0) {
+          localStorage.setItem('devil_mc_enquiries', JSON.stringify(data.enquiries));
+          return data.enquiries;
+        }
+      }
+    } catch {}
+
+    // 3. Fallback to LocalStorage
+    try {
+      const local = localStorage.getItem('devil_mc_enquiries');
+      return local ? JSON.parse(local) : [];
+    } catch {
       return [];
-    } catch (err) {
-      console.warn('Cloud fetch error, using local fallback:', err);
-      try {
-        const local = localStorage.getItem('devil_mc_enquiries');
-        return local ? JSON.parse(local) : [];
-      } catch {
-        return [];
-      }
     }
   },
 
   async updateAllEnquiries(updatedList: QuestFormData[]): Promise<boolean> {
     try {
-      await fetch(CLOUD_BIN_URL, {
+      await fetch(VERCEL_API_URL, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enquiries: updatedList }),
       });
-      localStorage.setItem('devil_mc_enquiries', JSON.stringify(updatedList));
-      return true;
-    } catch (err) {
-      console.error('Cloud update failed:', err);
-      localStorage.setItem('devil_mc_enquiries', JSON.stringify(updatedList));
-      return false;
-    }
+    } catch {}
+
+    try {
+      await fetch(FALLBACK_CLOUD_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enquiries: updatedList }),
+      });
+    } catch {}
+
+    localStorage.setItem('devil_mc_enquiries', JSON.stringify(updatedList));
+    return true;
   },
 
   async addEnquiry(newLead: QuestFormData): Promise<QuestFormData[]> {
-    try {
-      const currentList = await this.getEnquiries();
-      const updated = [newLead, ...currentList.filter((item) => item.id !== newLead.id)];
-      await this.updateAllEnquiries(updated);
-      return updated;
-    } catch {
-      return [];
-    }
+    const currentList = await this.getEnquiries();
+    const updated = [newLead, ...currentList.filter((item) => item.id !== newLead.id)];
+    await this.updateAllEnquiries(updated);
+    return updated;
   }
 };

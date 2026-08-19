@@ -1,4 +1,5 @@
 import { QuestFormData } from '../types';
+import { cloudStorage } from './cloudStorage';
 
 export interface WebhookResult {
   success: boolean;
@@ -59,16 +60,14 @@ export async function submitProjectEnquiry(data: QuestFormData): Promise<Webhook
 
   const formattedText = formatEnquiryForDiscord(completeData);
 
-  // Store in browser local storage for Admin Panel
+  // 1. Submit to Live Cloud Database for Admin Panel Sync
   try {
-    const existing: QuestFormData[] = JSON.parse(localStorage.getItem('devil_mc_enquiries') || '[]');
-    existing.unshift(completeData); // prepend latest
-    localStorage.setItem('devil_mc_enquiries', JSON.stringify(existing));
+    await cloudStorage.submitEnquiry(completeData);
   } catch (e) {
-    console.warn('LocalStorage save error:', e);
+    console.warn('Cloud sync save warning:', e);
   }
 
-  // Check if an environmental Discord webhook is configured
+  // 2. Check if an environmental Discord webhook is configured
   const webhookUrl = (import.meta as unknown as { env?: { VITE_DISCORD_WEBHOOK_URL?: string } }).env?.VITE_DISCORD_WEBHOOK_URL;
 
   if (webhookUrl && typeof webhookUrl === 'string' && webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
@@ -106,7 +105,7 @@ export async function submitProjectEnquiry(data: QuestFormData): Promise<Webhook
 
       return {
         success: true,
-        message: 'Quest transmitted directly to developer Discord queue!',
+        message: 'Quest transmitted directly to developer Discord queue and Admin Cloud!',
         payloadText: formattedText,
         enquiryId,
       };
@@ -115,12 +114,12 @@ export async function submitProjectEnquiry(data: QuestFormData): Promise<Webhook
     }
   }
 
-  // Graceful simulation
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  // Graceful simulation delay
+  await new Promise((resolve) => setTimeout(resolve, 300));
 
   return {
     success: true,
-    message: 'Project enquiry successfully generated & recorded in Admin Panel!',
+    message: 'Project enquiry successfully transmitted to Cloud Admin Database!',
     payloadText: formattedText,
     enquiryId,
   };

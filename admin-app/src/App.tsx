@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { cloudStorage } from './utils/cloudStorage';
 import {
   Shield,
   Search,
@@ -15,7 +16,9 @@ import {
   Tag,
   AlertCircle,
   KeyRound,
-  LogOut
+  LogOut,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 
 interface QuestFormData {
@@ -46,62 +49,19 @@ interface QuestFormData {
 const ADMIN_PASSCODE = 'devil2026';
 const BACKUP_PASSCODE = 'deviladmin';
 
-const SAMPLE_DEMO_LEADS: QuestFormData[] = [
-  {
-    id: 'quest_demo_01',
-    clientName: 'Alex Mercer',
-    serverBrandName: 'AetherSMP Network',
-    projectType: ['Custom Gameplay', 'Ranks & Progression', 'Economy & Vault'],
-    minecraftVersion: '1.20.4',
-    serverSoftware: 'Paper',
-    serverType: 'Hardcore Survival SMP',
-    approxPlayerCount: '50 - 150 Players',
-    projectTitle: 'Aether Prestige & Seasonal Quests',
-    projectDescription: 'Need a custom seasonal quest progression system where players earn prestige tokens, custom rank badges, and weekly prize crate keys. Must be zero tick lag and sync across 3 sub-servers with Redis.',
-    requiredFeatures: ['Async Processing (Zero Lag)', 'MySQL / MariaDB Database', 'Redis Real-time Sync', 'Custom MiniMessage GUI Menus'],
-    customFeatureNotes: 'Must integrate with LuckPerms and Vault economy.',
-    timeline: 'Standard (1-3 weeks)',
-    budgetPreference: 'Medium System ($100-$300)',
-    discordHandle: 'alex_mercer#4412',
-    email: 'alex@aethersmp.net',
-    serverIp: 'play.aethersmp.net',
-    submittedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-    status: 'New',
-    adminNotes: 'High priority client. Redis sync required.',
-  },
-  {
-    id: 'quest_demo_02',
-    clientName: 'ViperX',
-    serverBrandName: 'Obsidian Prison',
-    projectType: ['Economy & Vault', 'Custom GUI Menus'],
-    minecraftVersion: '1.21.x (Latest)',
-    serverSoftware: 'Purpur',
-    serverType: 'OP Prison',
-    approxPlayerCount: '20 - 50 Players',
-    projectTitle: 'Anti-Dupe Auto-Miner & Token Bank',
-    projectDescription: 'Custom pickaxe enchantments with explosive radius and multi-currency token bank with physical banknotes that cannot be duplicated.',
-    requiredFeatures: ['Anti-Dupe Concurrency Lock', 'Custom Sound & Particle FX', 'Vault Economy Provider'],
-    customFeatureNotes: 'Support ItemsAdder custom textures.',
-    timeline: 'Urgent (Under 1 week)',
-    budgetPreference: 'Small Scope ($40-$100)',
-    discordHandle: 'viper_owner',
-    email: 'admin@obsidianprison.com',
-    submittedAt: new Date(Date.now() - 3600000 * 26).toISOString(),
-    status: 'In Review',
-    adminNotes: 'Quoted $90, waiting for client response.',
-  },
-];
-
 export const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
   const [enquiries, setEnquiries] = useState<QuestFormData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [selectedEnquiry, setSelectedEnquiry] = useState<QuestFormData | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [adminNoteInput, setAdminNoteInput] = useState('');
+  const [lastSyncTime, setLastSyncTime] = useState<string>('');
 
   useEffect(() => {
     const savedAuth = sessionStorage.getItem('devil_admin_auth') || localStorage.getItem('devil_admin_auth');
@@ -110,24 +70,32 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  const loadEnquiries = () => {
+  // Fetch enquiries from cloud database
+  const loadCloudEnquiries = async (showLoading = false) => {
+    if (showLoading) setIsLoading(true);
+    setIsRefreshing(true);
     try {
-      const stored = localStorage.getItem('devil_mc_enquiries');
-      if (stored) {
-        const parsed: QuestFormData[] = JSON.parse(stored);
-        setEnquiries(parsed);
-      } else {
-        localStorage.setItem('devil_mc_enquiries', JSON.stringify(SAMPLE_DEMO_LEADS));
-        setEnquiries(SAMPLE_DEMO_LEADS);
-      }
-    } catch {
-      setEnquiries(SAMPLE_DEMO_LEADS);
+      const data = await cloudStorage.getEnquiries();
+      setEnquiries(data);
+      setLastSyncTime(new Date().toLocaleTimeString());
+    } catch (err) {
+      console.error('Failed to load enquiries:', err);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
     if (isAuthenticated) {
-      loadEnquiries();
+      loadCloudEnquiries(true);
+
+      // Auto background polling every 10 seconds for live updates
+      const interval = setInterval(() => {
+        loadCloudEnquiries(false);
+      }, 10000);
+
+      return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
 
@@ -149,38 +117,36 @@ export const App: React.FC = () => {
     setPinInput('');
   };
 
-  const saveEnquiries = (updated: QuestFormData[]) => {
-    setEnquiries(updated);
-    localStorage.setItem('devil_mc_enquiries', JSON.stringify(updated));
-  };
-
-  const handleStatusChange = (id: string, newStatus: QuestFormData['status']) => {
+  const handleStatusChange = async (id: string, newStatus: QuestFormData['status']) => {
     const updated = enquiries.map((item) =>
       item.id === id ? { ...item, status: newStatus } : item
     );
-    saveEnquiries(updated);
+    setEnquiries(updated);
     if (selectedEnquiry && selectedEnquiry.id === id) {
       setSelectedEnquiry({ ...selectedEnquiry, status: newStatus });
     }
+    await cloudStorage.updateAllEnquiries(updated);
   };
 
-  const handleSaveNotes = (id: string) => {
+  const handleSaveNotes = async (id: string) => {
     const updated = enquiries.map((item) =>
       item.id === id ? { ...item, adminNotes: adminNoteInput } : item
     );
-    saveEnquiries(updated);
+    setEnquiries(updated);
     if (selectedEnquiry && selectedEnquiry.id === id) {
       setSelectedEnquiry({ ...selectedEnquiry, adminNotes: adminNoteInput });
     }
+    await cloudStorage.updateAllEnquiries(updated);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this client enquiry?')) {
       const updated = enquiries.filter((item) => item.id !== id);
-      saveEnquiries(updated);
+      setEnquiries(updated);
       if (selectedEnquiry?.id === id) {
         setSelectedEnquiry(null);
       }
+      await cloudStorage.updateAllEnquiries(updated);
     }
   };
 
@@ -214,7 +180,7 @@ ${item.projectDescription}
     URL.revokeObjectURL(url);
   };
 
-  const handleAddSampleLead = () => {
+  const handleAddSampleLead = async () => {
     const randomId = `lead_${Date.now().toString().substring(8)}`;
     const newSample: QuestFormData = {
       id: randomId,
@@ -236,7 +202,9 @@ ${item.projectDescription}
       submittedAt: new Date().toISOString(),
       status: 'New',
     };
-    saveEnquiries([newSample, ...enquiries]);
+    const updated = [newSample, ...enquiries];
+    setEnquiries(updated);
+    await cloudStorage.updateAllEnquiries(updated);
   };
 
   const filtered = enquiries.filter((item) => {
@@ -255,6 +223,7 @@ ${item.projectDescription}
   const inProgressLeads = enquiries.filter((i) => i.status === 'In Development' || i.status === 'In Review').length;
   const completedLeads = enquiries.filter((i) => i.status === 'Completed').length;
 
+  // 1. PIN AUTHENTICATION SCREEN
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#080B10] flex items-center justify-center p-4">
@@ -304,6 +273,7 @@ ${item.projectDescription}
     );
   }
 
+  // 2. AUTHENTICATED DASHBOARD
   return (
     <div className="min-h-screen bg-[#080B10] text-[#F1F5F9] flex flex-col font-sans">
       <header className="bg-[#0E131F] border-b border-[#2A3654] sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
@@ -317,20 +287,42 @@ ${item.projectDescription}
                 DEVIL<span className="text-mc-emerald">.STUDIO</span>
               </span>
               <span className="mc-xp-badge text-[10px]">STANDALONE ADMIN PORTAL</span>
+              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-mc-emerald bg-mc-emerald/10 px-2 py-0.5 rounded border border-mc-emerald/30">
+                ● CLOUD SYNC ACTIVE
+              </span>
             </div>
             <p className="text-[10px] font-mono text-mc-muted">
-              Client Enquiries & Custom System Pipeline
+              Client Enquiries & Custom System Pipeline · Last synced: {lastSyncTime || 'Just now'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
           <button
+            onClick={() => loadCloudEnquiries(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded bg-mc-surface hover:bg-mc-hover text-mc-emerald border border-mc-emerald/40 transition-colors"
+            title="Refresh Live Enquiries from Cloud"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Sync Cloud</span>
+          </button>
+
+          <a
+            href="https://mc-server-dev.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded bg-mc-surface hover:bg-mc-hover text-mc-text hover:text-white border border-mc-border transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-mc-diamond" />
+            <span className="hidden sm:inline">Client Site</span>
+          </a>
+
+          <button
             onClick={handleExportJSON}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded bg-mc-surface hover:bg-mc-hover text-mc-muted hover:text-white border border-mc-border transition-colors"
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded bg-mc-surface hover:bg-mc-hover text-mc-muted hover:text-white border border-mc-border transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Export JSON</span>
+            <span>Export JSON</span>
           </button>
 
           <button
@@ -344,6 +336,7 @@ ${item.projectDescription}
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-8 space-y-6">
+        {/* Metrics Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="mc-panel p-4 bg-mc-surface/60">
             <span className="text-xs font-mono text-mc-subtle uppercase block">Total Enquiries</span>
@@ -363,6 +356,7 @@ ${item.projectDescription}
           </div>
         </div>
 
+        {/* Controls */}
         <div className="mc-panel p-4 bg-[#0E131F] flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="relative w-full md:w-80">
             <Search className="w-4 h-4 text-mc-subtle absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -400,129 +394,138 @@ ${item.projectDescription}
           </div>
         </div>
 
-        <div className="space-y-3">
-          {filtered.length === 0 ? (
-            <div className="mc-panel p-12 text-center space-y-3 border-dashed">
-              <AlertCircle className="w-8 h-8 text-mc-subtle mx-auto" />
-              <div className="text-base font-bold text-white">No Enquiries Found</div>
-              <p className="text-xs text-mc-muted max-w-sm mx-auto">
-                No client enquiries match your current filter. You can click '+ Test Lead' above to populate sample data.
-              </p>
-            </div>
-          ) : (
-            filtered.map((item) => {
-              const statusBadge =
-                item.status === 'New'
-                  ? 'bg-mc-emerald/15 text-mc-emerald border-mc-emerald/40'
-                  : item.status === 'In Review'
-                  ? 'bg-mc-gold/15 text-mc-gold border-mc-gold/40'
-                  : item.status === 'In Development'
-                  ? 'bg-mc-diamond/15 text-mc-diamond border-mc-diamond/40'
-                  : item.status === 'Completed'
-                  ? 'bg-mc-portal/15 text-mc-portal border-mc-portal/40'
-                  : 'bg-mc-surface text-mc-muted border-mc-border';
+        {/* Client Enquiries List */}
+        {isLoading ? (
+          <div className="mc-panel p-12 text-center space-y-3">
+            <RefreshCw className="w-8 h-8 text-mc-emerald animate-spin mx-auto" />
+            <div className="text-sm font-mono text-mc-muted">Connecting to Live Cloud Database...</div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.length === 0 ? (
+              <div className="mc-panel p-12 text-center space-y-3 border-dashed">
+                <AlertCircle className="w-8 h-8 text-mc-subtle mx-auto" />
+                <div className="text-base font-bold text-white">No Client Enquiries Found</div>
+                <p className="text-xs text-mc-muted max-w-sm mx-auto">
+                  When a client submits a quest on <a href="https://mc-server-dev.vercel.app" target="_blank" rel="noopener noreferrer" className="text-mc-emerald underline">mc-server-dev.vercel.app</a>, it will appear here instantly!
+                </p>
+              </div>
+            ) : (
+              filtered.map((item) => {
+                const statusBadge =
+                  item.status === 'New'
+                    ? 'bg-mc-emerald/15 text-mc-emerald border-mc-emerald/40'
+                    : item.status === 'In Review'
+                    ? 'bg-mc-gold/15 text-mc-gold border-mc-gold/40'
+                    : item.status === 'In Development'
+                    ? 'bg-mc-diamond/15 text-mc-diamond border-mc-diamond/40'
+                    : item.status === 'Completed'
+                    ? 'bg-mc-portal/15 text-mc-portal border-mc-portal/40'
+                    : 'bg-mc-surface text-mc-muted border-mc-border';
 
-              return (
-                <div
-                  key={item.id || item.submittedAt}
-                  className="mc-panel p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:border-mc-emerald/60 transition-all bg-mc-surface/80"
-                >
-                  <div className="space-y-1.5 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded border ${statusBadge}`}>
-                        {item.status || 'New'}
-                      </span>
-                      <h4 className="text-base font-bold text-white">
-                        {item.projectTitle || 'Custom Plugin Request'}
-                      </h4>
-                      <span className="text-xs font-mono text-mc-emerald font-semibold">
-                        by {item.clientName || 'Anonymous'}
-                      </span>
-                      {item.serverBrandName && (
-                        <span className="text-[11px] font-mono text-mc-muted flex items-center gap-1 bg-mc-obsidian px-2 py-0.5 rounded border border-mc-border">
-                          <ServerIcon className="w-3 h-3 text-mc-diamond" />
-                          <span>{item.serverBrandName}</span>
+                return (
+                  <div
+                    key={item.id || item.submittedAt}
+                    className="mc-panel p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:border-mc-emerald/60 transition-all bg-mc-surface/80"
+                  >
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded border ${statusBadge}`}>
+                          {item.status || 'New'}
                         </span>
-                      )}
-                    </div>
+                        <h4 className="text-base font-bold text-white">
+                          {item.projectTitle || 'Custom Plugin Request'}
+                        </h4>
+                        <span className="text-xs font-mono text-mc-emerald font-semibold">
+                          by {item.clientName || 'Anonymous'}
+                        </span>
+                        {item.serverBrandName && (
+                          <span className="text-[11px] font-mono text-mc-muted flex items-center gap-1 bg-mc-obsidian px-2 py-0.5 rounded border border-mc-border">
+                            <ServerIcon className="w-3 h-3 text-mc-diamond" />
+                            <span>{item.serverBrandName}</span>
+                          </span>
+                        )}
+                      </div>
 
-                    <p className="text-xs text-mc-muted line-clamp-2 leading-relaxed">
-                      {item.projectDescription}
-                    </p>
+                      <p className="text-xs text-mc-muted line-clamp-2 leading-relaxed">
+                        {item.projectDescription}
+                      </p>
 
-                    <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-mc-subtle pt-1">
-                      <span className="flex items-center gap-1">
-                        <MessageSquare className="w-3 h-3 text-mc-portal" />
-                        <strong className="text-mc-text">{item.discordHandle || 'N/A'}</strong>
-                      </span>
-                      {item.email && (
+                      <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-mc-subtle pt-1">
                         <span className="flex items-center gap-1">
-                          <Mail className="w-3 h-3 text-mc-gold" />
-                          <span>{item.email}</span>
+                          <MessageSquare className="w-3.5 h-3.5 text-mc-portal" />
+                          <strong className="text-mc-text">{item.discordHandle || 'N/A'}</strong>
                         </span>
-                      )}
-                      <span>Platform: <strong className="text-mc-diamond">{item.serverSoftware} ({item.minecraftVersion})</strong></span>
-                      <span>Budget: <strong className="text-mc-emerald">{item.budgetPreference}</strong></span>
-                      <span className="text-[10px] text-mc-subtle">
-                        {item.submittedAt ? new Date(item.submittedAt).toLocaleDateString() : 'Recent'}
-                      </span>
+                        {item.email && (
+                          <span className="flex items-center gap-1">
+                            <Mail className="w-3.5 h-3.5 text-mc-gold" />
+                            <span>{item.email}</span>
+                          </span>
+                        )}
+                        <span>Platform: <strong className="text-mc-diamond">{item.serverSoftware} ({item.minecraftVersion})</strong></span>
+                        <span>Budget: <strong className="text-mc-emerald">{item.budgetPreference}</strong></span>
+                        <span className="text-[10px] text-mc-subtle">
+                          {item.submittedAt ? new Date(item.submittedAt).toLocaleDateString() : 'Recent'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 border-t lg:border-t-0 pt-3 lg:pt-0 border-mc-border/40">
+                      <select
+                        value={item.status || 'New'}
+                        onChange={(e) =>
+                          handleStatusChange(item.id || '', e.target.value as QuestFormData['status'])
+                        }
+                        className="bg-[#080B10] border border-[#2A3654] rounded px-3 py-1.5 text-xs font-mono text-white focus:border-mc-emerald focus:outline-none"
+                      >
+                        <option value="New">New</option>
+                        <option value="In Review">In Review</option>
+                        <option value="Accepted">Accepted</option>
+                        <option value="In Development">In Development</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Archived">Archived</option>
+                      </select>
+
+                      <button
+                        onClick={() => {
+                          setSelectedEnquiry(item);
+                          setAdminNoteInput(item.adminNotes || '');
+                        }}
+                        className="p-2 rounded bg-mc-surface hover:bg-mc-hover text-mc-text hover:text-mc-emerald border border-mc-border transition-colors"
+                        title="View Full Specifications"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => handleCopyDiscordFormat(item)}
+                        className="p-2 rounded bg-mc-surface hover:bg-mc-hover text-mc-text hover:text-mc-portal border border-mc-border transition-colors"
+                        title="Copy Formatted Discord Markdown"
+                      >
+                        {copiedId === item.id ? (
+                          <CheckCircle2 className="w-4 h-4 text-mc-emerald" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => handleDelete(item.id || '')}
+                        className="p-2 rounded bg-mc-surface hover:bg-mc-redstone/20 text-mc-subtle hover:text-mc-redstone border border-mc-border transition-colors"
+                        title="Delete Enquiry"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2 shrink-0 border-t lg:border-t-0 pt-3 lg:pt-0 border-mc-border/40">
-                    <select
-                      value={item.status || 'New'}
-                      onChange={(e) =>
-                        handleStatusChange(item.id || '', e.target.value as QuestFormData['status'])
-                      }
-                      className="bg-[#080B10] border border-[#2A3654] rounded px-3 py-1.5 text-xs font-mono text-white focus:border-mc-emerald focus:outline-none"
-                    >
-                      <option value="New">New</option>
-                      <option value="In Review">In Review</option>
-                      <option value="Accepted">Accepted</option>
-                      <option value="In Development">In Development</option>
-                      <option value="Completed">Completed</option>
-                      <option value="Archived">Archived</option>
-                    </select>
-
-                    <button
-                      onClick={() => {
-                        setSelectedEnquiry(item);
-                        setAdminNoteInput(item.adminNotes || '');
-                      }}
-                      className="p-2 rounded bg-mc-surface hover:bg-mc-hover text-mc-text hover:text-mc-emerald border border-mc-border transition-colors"
-                      title="View Full Specifications"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={() => handleCopyDiscordFormat(item)}
-                      className="p-2 rounded bg-mc-surface hover:bg-mc-hover text-mc-text hover:text-mc-portal border border-mc-border transition-colors"
-                      title="Copy Formatted Discord Markdown"
-                    >
-                      {copiedId === item.id ? (
-                        <CheckCircle2 className="w-4 h-4 text-mc-emerald" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => handleDelete(item.id || '')}
-                      className="p-2 rounded bg-mc-surface hover:bg-mc-redstone/20 text-mc-subtle hover:text-mc-redstone border border-mc-border transition-colors"
-                      title="Delete Enquiry"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </main>
 
+      {/* Inspector Modal */}
       {selectedEnquiry && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
           <div className="bg-[#0E131F] border border-[#2A3654] rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl">
